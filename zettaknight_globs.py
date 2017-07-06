@@ -38,16 +38,10 @@ import datetime
 version = "0.1"
 
 #version of python required by zettaknight
-required_python_version = "2.x"
+required_python_version = "2.6"
 
 #variable to determine the fully qualified domain name of the system
 fqdn = socket.getfqdn()
-
-#needs to be removed when order YAML dict is in place
-pool_name = "zfs_data"
-
-#zfs dataset definition for store information for zettaknight, config files and keys will reside here
-zettaknight_store = "{0}/zettaknight/{1}".format(pool_name, fqdn)
 
 #determines the current date
 today_date = str(datetime.datetime.today().strftime('%Y%m%d_%H%M'))
@@ -59,9 +53,8 @@ today_date2 = str(datetime.datetime.today().strftime('%Y%m%d'))
 abspath = os.path.realpath(__file__)
 base_dir = os.path.dirname(abspath)
 script_dir = os.path.dirname("{0}/zettaknight.d/".format(base_dir))
-conf_dir = os.path.dirname("{0}/zettaknight.conf.d/".format(base_dir))
-conf_dir_new = os.path.dirname("/etc/zettaknight/")
-#conf_dir_final = os.path.dirname("/{0}".format(zettaknight_store)) #add leading slash, zfs share
+default_conf_dir = os.path.dirname("{0}/zettaknight.conf.d/".format(base_dir))
+conf_dir = os.path.dirname("/etc/zettaknight/")
 
 #############################################################################################
 #############################################################################################
@@ -82,15 +75,14 @@ identity_file = "{0}/zettaknight.id".format(crypt_dir)
 #the config file is a yaml file used in all processes of zettaknight.  This sets the configuration
 #on which zettaknight does it automated processes.
 
-default_config_file = "{0}/default_conf_file.yml".format(conf_dir)
+default_config_file = "{0}/default_conf_file.yml".format(default_conf_dir)
 config_file = "{0}/{1}.conf".format(conf_dir, fqdn)
-config_file_new = "{0}/{1}.conf".format(conf_dir_new, fqdn)
 
-default_pool_config_file = "{0}/default_pool_conf_file.yml".format(conf_dir)
-pool_config_file = "{0}/{1}_zpool.conf".format(conf_dir_new, fqdn)
+default_pool_config_file = "{0}/default_pool_conf_file.yml".format(default_conf_dir)
+pool_config_file = "{0}/{1}_zpool.conf".format(conf_dir, fqdn)
 
-default_zettaknight_config_file = "{0}/default_zettaknight_conf_file.yml".format(conf_dir)
-zettaknight_config_file = "{0}/zettaknight.conf".format(conf_dir_new)
+default_zettaknight_config_file = "{0}/default_zettaknight_conf_file.yml".format(default_conf_dir)
+zettaknight_config_file = "{0}/zettaknight.conf".format(conf_dir)
 
 #cron.d files
 crond_primary = "/etc/cron.d/{0}_primary_datasets".format(fqdn)

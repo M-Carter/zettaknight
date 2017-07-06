@@ -123,7 +123,7 @@ fi
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
 
 if [ -z $lock_file_exp ]; then #if timeout not called set a default
-    lock_file_exp=48 #hours until an alert will be sent about a existing lock file
+    lock_file_exp=99999 #hours until an alert will be sent about a existing lock file
 fi
     
 ##################### check/create lockfile ######################
@@ -135,7 +135,7 @@ if [[ -f "$lock_file_path" ]]; then
     lock_file_hours_old=$(( (time_now - lock_file_mtime) / 3600 ))
     
     if [ $lock_file_hours_old -gt $lock_file_exp ]; then
-        echo "WARNING: lock file $lock_file_path for $local_dataset is older than $lock_file_exp hour(s), sync process cannot continue"
+        echo "ALERT: $lock_file_exp hour TIMEOUT value exceeded for lock file $lock_file_path : $local_dataset, check to make sure the process is not hung"
         exit 1
     else
         echo "ALERT: lock file $lock_file_path exists for $local_dataset, but is $lock_file_hours_old hour(s) old, which is within the limit set at $lock_file_exp"

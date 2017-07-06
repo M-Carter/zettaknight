@@ -7,7 +7,7 @@
 running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 setopts="${running_dir}/setopts.sh"
 
-source $setopts || { echo "failed to source $setopts"; exit 1; }
+#source $setopts || { echo "failed to source $setopts"; exit 1; }
 
 zfs="/sbin/zfs"
 

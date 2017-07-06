@@ -31,6 +31,7 @@ import types
 import inspect
 import time
 import logging
+
 from zettaknight_zpool import *
 from zettaknight_utils import *
 from zettaknight_zfs import *
@@ -41,14 +42,19 @@ from zettaknight_check import *
         
 def argparsing():
     
-    #parser = argparse.ArgumentParser()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('pos1')
+    parser.add_argument('pos2', nargs=2, action='append')
+
+    args = parser.parse_args()
+
+    print args.pos1
+    print args.pos2
     
-    #parser.add_argument('function', metavar=('Function', 'F'), nargs='+', help='Zettaknight function to execute.')
-    #parser.add_argument('-f', '--foo', nargs='+', help='just display something different')
-    #parser.parse_args()
     
-    
-    return
+    return args
 
 def help(methods, *args):
     
@@ -137,226 +143,196 @@ def do_prep_work():
 def _get_conf():
     '''
     '''   
-     
-    config_dict = {}
     
-    zettaknight_utils.zlog("attempting to build _get_conf","DEBUG")
-        
-        
-    ###########################################################################################
-    #test if zettaknight conf file exists, if not copy default conf file out of share and exit#
-    ###########################################################################################
     try:
-    
-        if not os.path.isfile(zettaknight_globs.config_file_new) or not os.path.isfile(zettaknight_globs.pool_config_file):
-            if os.path.isfile(zettaknight_globs.default_config_file):
-                if not os.path.isfile(zettaknight_globs.config_file_new):
-                    shutil.copy(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new)
-                    print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new), "OKBLUE"))
-            else:
-                raise IOError('default configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_config_file))
+        config_dict = {}
                 
-            if os.path.isfile(zettaknight_globs.default_pool_config_file):
-                    if not os.path.isfile(zettaknight_globs.pool_config_file):
-                        shutil.copy(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file)
-                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file), "OKBLUE"))
-            else:
-                raise IOError('default pool configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_pool_config_file))
-                
-            zlog("default conf files have been created. Edit values then run zettaknight again to deploy the configuration", "WARNING")
-            sys.exit(0)
-            
-        conff = open(zettaknight_globs.config_file_new, 'r')   
+        conff = open(zettaknight_globs.config_file, 'r')   
         config_dict = yaml.safe_load(conff)
         #test if config file is empty
-        if not config_dict:
-            raise ValueError('config file {0} is empty, cannot continue'.format(zettaknight_globs.config_file_new))
-    except Exception as e:
-        zlog("{0}".format(e), "CRITICAL")
-        sys.exit(1)
-    
-    new_dict = {}
-    #print(config_dict)
-    for dataset in config_dict.iterkeys():
-        if dataset != 'defaults':
-            new_dict[dataset] = {}
         
-            ########### define var ###############
-            new_dict[dataset]['user'] = {}
-            new_dict[dataset]['quota'] = {}
-            new_dict[dataset]['refquota'] = {}
-            new_dict[dataset]['reservation'] = {}
-            new_dict[dataset]['refreservation'] = {}
-            new_dict[dataset]['retention'] = {}
-            new_dict[dataset]['secure'] = {}
-            new_dict[dataset]['contact'] = {}
-            new_dict[dataset]['snap'] = {}
-            new_dict[dataset]['snap']['interval'] = {}
-            new_dict[dataset]['snap']['remote_server'] = {}
-            new_dict[dataset]['snap']['dgr'] = {}
-            new_dict[dataset]['snap']['backup_server'] = {}
-            new_dict[dataset]['snap']['translate'] = {}
-            new_dict[dataset]['snap']['timeout'] = {}
-            new_dict[dataset]['priority'] = {}
-            #####################################
-        
-            #print("dataset is {0}".format(dataset))
-        
-            ############## determine if there are any default values ##################
-            ###########################################################################
-            if 'defaults' in config_dict.iterkeys():
+        new_dict = {}
+        #print(config_dict)
+        for dataset in config_dict.iterkeys():
+            if dataset != 'defaults':
+                new_dict[dataset] = {}
             
-                if 'user' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['user'] = config_dict['defaults']['user']
-                
-                if 'quota' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['quota'] = config_dict['defaults']['quota']
-                
-                if 'refquota' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['refquota'] = config_dict['defaults']['refquota']
-                
-                if 'reservation' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['reservation'] = config_dict['defaults']['reservation']
-                
-                if 'refreservation' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['refreservation'] = config_dict['defaults']['refreservation']
-                
-                if 'retention' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['retention'] = config_dict['defaults']['retention']
-                
-                if 'secure' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['secure'] = config_dict['defaults']['secure']
-                
-                if 'contact' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['contact'] = config_dict['defaults']['contact']
-                
-                if 'snap' in config_dict['defaults'].iterkeys():
-                    if 'interval' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['interval'] = config_dict['defaults']['snap']['interval']
-                    if 'remote_server' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['remote_server'] = config_dict['defaults']['snap']['remote_server']
-                    if 'dgr' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['dgr'] = config_dict['defaults']['snap']['dgr']
-                    if 'backup_server' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['backup_server'] = config_dict['defaults']['snap']['backup_server']
-                    if 'translate' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['translate'] = config_dict['defaults']['snap']['translate']
-                    if 'timeout' in config_dict['defaults']['snap'].iterkeys():
-                        new_dict[dataset]['snap']['timeout'] = config_dict['defaults']['snap']['timeout']
-                        
-                if 'priority' in config_dict['defaults'].iterkeys():
-                    new_dict[dataset]['priority'] = config_dict['defaults']['priority']
-            ###########################################################################
-            ###########################################################################
+                ########### define var ###############
+                new_dict[dataset]['user'] = {}
+                new_dict[dataset]['quota'] = {}
+                new_dict[dataset]['refquota'] = {}
+                new_dict[dataset]['reservation'] = {}
+                new_dict[dataset]['refreservation'] = {}
+                new_dict[dataset]['retention'] = {}
+                new_dict[dataset]['secure'] = {}
+                new_dict[dataset]['contact'] = {}
+                new_dict[dataset]['snap'] = {}
+                new_dict[dataset]['snap']['interval'] = {}
+                new_dict[dataset]['snap']['remote_server'] = {}
+                new_dict[dataset]['snap']['dgr'] = {}
+                new_dict[dataset]['snap']['backup_server'] = {}
+                new_dict[dataset]['snap']['translate'] = {}
+                new_dict[dataset]['snap']['timeout'] = {}
+                new_dict[dataset]['priority'] = {}
+                #####################################
             
-            ############ determine any declared overwrite conf values #################
-            ###########################################################################
-            if config_dict[dataset]:
-                if 'user' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['user'] = config_dict[dataset]['user']
+                #print("dataset is {0}".format(dataset))
+            
+                ############## determine if there are any default values ##################
+                ###########################################################################
+                if 'defaults' in config_dict.iterkeys():
                 
-                if 'quota' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['quota'] = config_dict[dataset]['quota']
-        
-                if 'refquota' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['refquota'] = config_dict[dataset]['refquota']
-                
-                if 'reservation' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['reservation'] = config_dict[dataset]['reservation']
-                
-                if 'refreservation' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['refreservation'] = config_dict[dataset]['refreservation']
-                
-                if 'retention' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['retention'] = config_dict[dataset]['retention']
-                
-                if 'secure' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['secure'] = config_dict[dataset]['secure']
-                
-                if 'contact' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['contact'] = config_dict[dataset]['contact']
+                    if 'user' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['user'] = config_dict['defaults']['user']
                     
-                if 'snap' in config_dict[dataset].iterkeys():
-                    if 'interval' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['interval'] = config_dict[dataset]['snap']['interval']
-                    if 'remote_server' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['remote_server'] = config_dict[dataset]['snap']['remote_server']
-                    if 'dgr' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['dgr'] = config_dict[dataset]['snap']['dgr']
-                    if 'backup_server' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['backup_server'] = config_dict[dataset]['snap']['backup_server']
-                    if 'translate' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['translate'] = config_dict[dataset]['snap']['translate']
-                    if 'timeout' in config_dict[dataset]['snap'].iterkeys():
-                        new_dict[dataset]['snap']['timeout'] = config_dict[dataset]['snap']['timeout'] 
+                    if 'quota' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['quota'] = config_dict['defaults']['quota']
+                    
+                    if 'refquota' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['refquota'] = config_dict['defaults']['refquota']
+                    
+                    if 'reservation' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['reservation'] = config_dict['defaults']['reservation']
+                    
+                    if 'refreservation' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['refreservation'] = config_dict['defaults']['refreservation']
+                    
+                    if 'retention' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['retention'] = config_dict['defaults']['retention']
+                    
+                    if 'secure' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['secure'] = config_dict['defaults']['secure']
+                    
+                    if 'contact' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['contact'] = config_dict['defaults']['contact']
+                    
+                    if 'snap' in config_dict['defaults'].iterkeys():
+                        if 'interval' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['interval'] = config_dict['defaults']['snap']['interval']
+                            
+                        if 'remote_server' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['remote_server'] = config_dict['defaults']['snap']['remote_server']
+                            
+                        if 'dgr' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['dgr'] = config_dict['defaults']['snap']['dgr']
+                            
+                        if 'backup_server' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['backup_server'] = config_dict['defaults']['snap']['backup_server']
+                            
+                        if 'translate' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['translate'] = config_dict['defaults']['snap']['translate']
+                            
+                        if 'timeout' in config_dict['defaults']['snap'].iterkeys():
+                            new_dict[dataset]['snap']['timeout'] = config_dict['defaults']['snap']['timeout']
+                            
+                    if 'priority' in config_dict['defaults'].iterkeys():
+                        new_dict[dataset]['priority'] = config_dict['defaults']['priority']
+                ###########################################################################
+                ###########################################################################
+                
+                ############ determine any declared overwrite conf values #################
+                ###########################################################################
+                if config_dict[dataset]:
+                    if 'user' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['user'] = config_dict[dataset]['user']
+                    
+                    if 'quota' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['quota'] = config_dict[dataset]['quota']
+            
+                    if 'refquota' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['refquota'] = config_dict[dataset]['refquota']
+                    
+                    if 'reservation' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['reservation'] = config_dict[dataset]['reservation']
+                    
+                    if 'refreservation' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['refreservation'] = config_dict[dataset]['refreservation']
+                    
+                    if 'retention' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['retention'] = config_dict[dataset]['retention']
+                    
+                    if 'secure' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['secure'] = config_dict[dataset]['secure']
+                    
+                    if 'contact' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['contact'] = config_dict[dataset]['contact']
                         
-                if 'priority' in config_dict[dataset].iterkeys():
-                    new_dict[dataset]['priority'] = config_dict[dataset]['priority']
-        
-            ###########################################################################
-            ###########################################################################
-        
-            ############ add values if defaults and conf values are null ##############
-            ###########################################################################
-            if not new_dict[dataset]['quota']:
-                new_dict[dataset]['quota'] = 'none'
+                    if 'snap' in config_dict[dataset].iterkeys():
+                        if 'interval' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['interval'] = config_dict[dataset]['snap']['interval']
+                            
+                        if 'remote_server' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['remote_server'] = config_dict[dataset]['snap']['remote_server']
+                            
+                        if 'dgr' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['dgr'] = config_dict[dataset]['snap']['dgr']
+                            
+                        if 'backup_server' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['backup_server'] = config_dict[dataset]['snap']['backup_server']
+                            
+                        if 'translate' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['translate'] = config_dict[dataset]['snap']['translate']
+                            
+                        if 'timeout' in config_dict[dataset]['snap'].iterkeys():
+                            new_dict[dataset]['snap']['timeout'] = config_dict[dataset]['snap']['timeout'] 
+                            
+                    if 'priority' in config_dict[dataset].iterkeys():
+                        new_dict[dataset]['priority'] = config_dict[dataset]['priority']
             
-            if not new_dict[dataset]['refquota']:
-                new_dict[dataset]['refquota'] = 'none'
+                ###########################################################################
+                ###########################################################################
             
-            if not new_dict[dataset]['reservation']:
-                new_dict[dataset]['reservation'] = 'none'
+                ############ add values if defaults and conf values are null ##############
+                ###########################################################################
+                if not new_dict[dataset]['quota']:
+                    new_dict[dataset]['quota'] = 'none'
+                
+                if not new_dict[dataset]['refquota']:
+                    new_dict[dataset]['refquota'] = 'none'
+                
+                if not new_dict[dataset]['reservation']:
+                    new_dict[dataset]['reservation'] = 'none'
+                
+                if not new_dict[dataset]['refreservation']:
+                    new_dict[dataset]['refreservation'] = 'none'
+                
+                if not new_dict[dataset]['secure']:
+                    new_dict[dataset]['secure'] = 'True'
+                
+                if not new_dict[dataset]['contact']:
+                    new_dict[dataset]['contact'] = zettaknight_globs.default_contact_info
             
-            if not new_dict[dataset]['refreservation']:
-                new_dict[dataset]['refreservation'] = 'none'
+                ###########################################################################
+                ###########################################################################
             
-            if not new_dict[dataset]['secure']:
-                new_dict[dataset]['secure'] = 'True'
-            
-            if not new_dict[dataset]['contact']:
-                new_dict[dataset]['contact'] = zettaknight_globs.default_contact_info
-        
-            ###########################################################################
-            ###########################################################################
-        
-            ############ format checking for contact variable #########################
-            ###########################################################################
-            if isinstance(new_dict[dataset]['contact'], list):
-                contacts = False
-                for addr in new_dict[dataset]['contact']:
-                    if not contacts:
-                        contacts = "{0}".format(addr)
-                    else:
-                        contacts = "{0} {1}".format(contacts, addr)
-            
-                new_dict[dataset]['contact'] = contacts
-            ###########################################################################
-            ###########################################################################
+                ############ format checking for contact variable #########################
+                ###########################################################################
+                if isinstance(new_dict[dataset]['contact'], list):
+                    contacts = False
+                    for addr in new_dict[dataset]['contact']:
+                        if not contacts:
+                            contacts = "{0}".format(addr)
+                        else:
+                            contacts = "{0} {1}".format(contacts, addr)
+                
+                    new_dict[dataset]['contact'] = contacts
+                ###########################################################################
+                ###########################################################################
 
-            #print("\n\ndictionary for {0} is as follows\n{1}\n\n".format(dataset, new_dict[dataset]))
+        logger.debug("dictionary returned from _get_conf:", new_dict)
         
-    #print(printcolors("\n\nfull dictionary for get_conf is as follows\n{0}".format(new_dict), "OKBLUE"))
-    zlog("dictionary returned from _get_conf:\n\t{0}".format(new_dict),"DEBUG")
+    except Exception, e:
+        raise Exception(e)
+        
     return new_dict
     
 def _get_pool_conf():
     
     pool_dict = {}
-    zettaknight_store = ""
-    contact = "" #make the last contact entry the default for all pools
 
     try:
         conff = open(zettaknight_globs.pool_config_file, 'r')   
         config_dict = yaml.safe_load(conff)
-    except IOError as e:
-        zlog("{0}".format(e), "ERROR")
-        return
-    
-    if config_dict:
-    
-        for zpool in config_dict.iterkeys():
-            if 'zettaknight_store' in config_dict[zpool].iterkeys():
-                zettaknight_store = "{0}/zettaknight/{1}".format(zpool, zettaknight_globs.fqdn)
         
         for zpool in config_dict.iterkeys():
             pool_dict[zpool] = {}
@@ -367,6 +343,7 @@ def _get_pool_conf():
             pool_dict[zpool]['slog'] = {}
             pool_dict[zpool]['luks'] = {}
             pool_dict[zpool]['recordsize'] = {}
+            pool_dict[zpool]['zettaknight_store'] = {}
             
             if config_dict[zpool]:
                 if 'ashift' in config_dict[zpool].iterkeys():
@@ -390,48 +367,21 @@ def _get_pool_conf():
                 if 'quota' in config_dict[zpool].iterkeys():
                     pool_dict[zpool]['quota'] = config_dict[zpool]['quota']
                 
-            
                 if 'contact' in config_dict[zpool].iterkeys():
                     contact = config_dict[zpool]['contact']
-                
-                #make sure each pool has it's own zettaknight_store
-                if not zettaknight_store:
-                    zettaknight_store = "{0}/zettaknight/{1}".format(zpool, zettaknight_globs.fqdn)
-                
-        zettaknight_globs.zettaknight_store = zettaknight_store
-        zlog("zettaknight_store global set to: {0}".format(zettaknight_globs.zettaknight_store),"DEBUG")
-        zettaknight_globs.default_contact_info = contact
-        zlog("zpool contact global set to: {0}".format(zettaknight_globs.default_contact_info),"DEBUG")
+
+                pool_dict[zpool]['zettaknight_store'] = "{0}/zettaknight/{1}".format(zpool, zettaknight_globs.fqdn)
+    
+    except Exception, e:
+        raise Exception(e)
         
-        if not contact:
-            zlog("contact information must be defined in zpool conf, please edit and try again","CRITICAL")
-            sys.exit(1)
-                
-        #print(printcolors(pool_dict, "OKBLUE"))                    
-        zlog("dictionary returned from _get_pool_conf:\n\t{0}".format(pool_dict),"DEBUG")
-        return pool_dict
+    return pool_dict
         
 def _get_zettaknight_conf():
 
     zettaknight_conf = {}
     
     try:
-    
-        if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
-                    os.mkdir(zettaknight_globs.conf_dir_new)
-                    zettaknight_utils.zlog("created {0}".format(zettaknight_globs.conf_dir_new),"INFO")
-    
-        if not os.path.isfile(zettaknight_globs.zettaknight_config_file):
-        
-            if os.path.isfile(zettaknight_globs.default_zettaknight_config_file):
-            
-                shutil.copy(zettaknight_globs.default_zettaknight_config_file, zettaknight_globs.zettaknight_config_file)
-                print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file), "OKBLUE"))
-                
-            else:
-            
-                zlog("default zettaknight config file {0} does not exist".format(zettaknight_globs.default_zettaknight_config_file), "CRITICAL")
-                sys.exit(1)
         
         conff = open(zettaknight_globs.zettaknight_config_file, 'r')
         config_dict = yaml.safe_load(conff)
@@ -453,60 +403,112 @@ def _get_zettaknight_conf():
             
         if 'sync_timeout' in config_dict.iterkeys():
             zettaknight_conf['sync_timeout'] = config_dict['sync_timeout']
-            
-            
-        #exit if required values are empty
-        
-        required = ['config_enforcement', 'zpool_config_enforcement', 'parallel']
-        if not all (req in zettaknight_conf.iterkeys() for req in required):
-        
-            zlog("{0} are all required\n\trefer to {1}\n\t\tzettaknight_conf: {2}".format(required, zettaknight_globs.default_zettaknight_config_file, zettaknight_conf),"CRITICAL")
-            sys.exit(1)
-
-        return zettaknight_conf
     
     except Exception as e:
-        zlog("{0}".format(e), "ERROR")
-        return
+        raise Exception(e)
+        
+    return zettaknight_conf
         
     
  
    
 def _entry_point(argv=None):
-    
-    #argparsing()
-    
-    #zlog("zettaknight start", "DEBUG")
-    
-    print(printcolors("zettaknight version {0}\nstart: {1}".format(zettaknight_globs.version, datetime.datetime.today()), "WARNING")) # print version information
+
     start_time = time.time()
+
+    #################################################################################
+    #################################################################################
+    
+    '''
+    create logging handlers for console output, syslog or rotating logfiles
+    '''
+    
+    try:
+        logfile = '/var/log/{0}.log'.format(os.path.basename(__file__))
+        
+        logger_init = Logger('INFO')
+        logger = logger_init.create_max_time_log(logfile, '1day', 7)
+        logger = logger_init.create_syslog_log()
+        logger = logger_init.create_console_log()
+
+    except Exception, e:
+        print('failed to create logging: {0}'.format(e))
+        sys.exit(1)
+        
+    #################################################################################
+    #################################################################################
+    
+    '''
+    test if the correct verision of python is available
+    '''
         
     py_ver = sys.version_info[:2]
     py_vers = "{0}.{1}".format(py_ver[0], py_ver[1])
     
     if not str(py_vers[0]) == zettaknight_globs.required_python_version[0]:
-        try:
-            raise Exception("Required Python version: {0}\nInstalled Python version: {1}".format(zettaknight_globs.required_python_version, py_vers))
-        except Exception as e:
-            zlog("{0}".format(e), "CRITICAL")
-            sys.exit(1)
+        logger.critical("Required Python version: {0}\nInstalled Python version: {1}".format(zettaknight_globs.required_python_version, py_vers))
+        sys.exit(1)
 
-    #############################################################################
-    #test to determine if pool and child objects are both defined in config_file#
-    #############################################################################
-    
-    #############################################################################
-    #############################################################################
-    #############################################################################
-
+    #################################################################################
+    #################################################################################
+            
+    '''
+    test if zettaknight's ssh key is available, if not, create it, if one 
+    is not found and cannot be created, zettaknight must exit
+    '''
     if not os.path.isfile(zettaknight_globs.identity_file):
         try:
-            print(printcolors("zettaknight id file not found, generating.", "WARNING"))
+            logger.info('generating Zettaknight identity key')
             ssh_keygen(zettaknight_globs.identity_file)
-        except Exception as e:
-            print(printcolors("Exception encountered: {0}".format(e), "FAIL"))
-            print(printcolors("Attempting to continue", "FAIL"))
-            pass
+            logger.info('key created: {0}'.format(zettaknight_globs.identity_file))
+            
+        except Exception, e:
+            logger.critical(e)
+            sys.exit(e.errno)
+            
+    #################################################################################
+    #################################################################################
+    
+    '''
+    if the dataset and zpool configuration files does not exist in /etc/zettaknight, 
+    copy from default directory and exit.  Zettaknight cannot run correctly if these
+    files do not exist.
+    '''
+    
+    files = [
+                (zettaknight_globs.default_config_file, zettaknight_globs.config_file),
+                (zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file),
+                (zettaknight_globs.default_zettaknight_config_file, zettaknight_globs.zettaknight_config_file)
+            ]
+    
+    try:
+    
+        '''test if /etc/zettaknight exists, if not create it'''
+        
+        if not os.path.isdir(zettaknight_globs.conf_dir):
+            os.mkdir(zettaknight_globs.conf_dir)
+            logger.info('created', zettaknight_globs.conf_dir)
+        
+        #set a bool to tell if any files were missing
+        missing = False
+    
+        for dfile, file in files:
+            if not os.path.isfile(file)
+                shutil.copy(dfile, file)
+                logger.info('copied', dfile, 'to', file)
+                missing = True
+                
+        
+        if missing:
+            logger.warning('exiting Zettaknight.  Complete configuration files before running again'
+            sys.exit(0)
+            
+    except Exception, e:
+        logger.critical(e)
+        sys.exit(e.errno)
+        
+    #################################################################################
+    #################################################################################
         
     ret = {}
     args = []

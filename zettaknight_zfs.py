@@ -609,6 +609,7 @@ def sync(*args, **kwargs):
     '''
     
     zettaknight_utils.zlog("kwargs recieved by sync\n\t{0}".format(kwargs), "DEBUG")
+    zettaknight_utils.zlog("args recieved by sync\n\t{0}".format(args), "DEBUG")
     
     if zettaknight_globs.help_flag:
         ret = """Sync:
@@ -633,181 +634,126 @@ def sync(*args, **kwargs):
     #        print("priority is an integer")
     #    os.nice(int(priority))
     try:
+    
+        if args:
+        
+            kwargs['dataset'] = args[0]
+            kwargs['remote_ssh'] = args[1]
+    
         if 'dataset' and 'remote_ssh' in kwargs.iterkeys():
+        
             sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, kwargs['dataset'], kwargs['remote_ssh'])
+            
         else:
+        
             raise Exception("dataset and remote_ssh is are required kwargs for sync")
     
         if 'identity_file' in kwargs.iterkeys():
+        
             sync_cmd = "{0} -i {1}".format(sync_cmd, kwargs['identity_file'])
-        if 'pull_snap' in kwargs.iterkeys():
-            if kwargs['pull_snap']:
-                sync_cmd = "{0} -p".format(sync_cmd)
+            
+        else:
+        
+            sync_cmd = "{0} -i {1}".format(sync_cmd, zettaknight_globs.identity_file)
+            
+#        if 'pull_snap' in kwargs.iterkeys():
+        
+#            if kwargs['pull_snap']:
+            
+#                sync_cmd = "{0} -p".format(sync_cmd)
+                
         if 'priority' in kwargs.iterkeys():
+        
             sync_cmd = "{0} -n {1}".format(sync_cmd, kwargs['priority'])
+            
         if 'translate' in kwargs.iterkeys():
+        
             if kwargs['translate']:
+            
                 sync_cmd = "{0} -r {1}".format(sync_cmd, kwargs['translate'])
+                
         if 'timeout' in kwargs.iterkeys():
+        
             if kwargs['timeout']:
+            
                 sync_cmd = "{0} -t {1}".format(sync_cmd, kwargs['timeout'])
     
         if str(inspect.stack()[1][3]) is 'sync_all':
+        
             zettaknight_utils.zlog("starting sync job:\n\t{0}".format(sync_cmd),"INFO")
+            
             ret = zettaknight_utils.spawn_job(sync_cmd)
+            
         else:
+        
             ret = {}
-            ret[dataset] = {}
-            ret[dataset]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd)
+            ret[kwargs['dataset']] = {}
+            ret[kwargs['dataset']]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd)
+            
     except Exception as e:
+    
         zettaknight_utils.zlog("{0}".format(e),"CRITICAL")
         sys.exit(1)
     
     return ret
- 
-def sync_all(**kwargs):
-    '''
-    '''
     
-    zettaknight_utils.zlog("kwargs passed to sync_all:\n\t{0}".format(kwargs), "DEBUG")
+    
+def sync_all():
+    '''
+    '''
     
     ret = {}
-    
-    if 'parallel' in zettaknight_globs.zettaknight_conf.iterkeys():
-    
-        if zettaknight_globs.zettaknight_conf['parallel']:
-    
-            parallel = zettaknight_utils._str_to_bool(zettaknight_globs.zettaknight_conf['parallel'])
-        
-    else:
-        parallel = False
-
-        
-    zettaknight_utils.zlog("[sync_all] started, parallel is {0}".format(parallel), "INFO")
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Sync All:
-
     Syncs snapshots for all defined datasets.
-    
-    Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
-
-    Usage:
-        zettaknight sync_all """
+	
+	Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
+	Usage:
+		zettaknight sync_all """
 
         return ret
 
-        
+		
     protocol = "ssh"
     
-    sync_list = []
-    index = 1
-    list_pos = 0
-
-
     for dataset in zettaknight_globs.zfs_conf.iterkeys():
     
-        #kwargs to be passed to sync
         my_kwargs = {}
         my_kwargs['dataset'] = dataset
         my_kwargs['identity_file'] = zettaknight_globs.identity_file
-        
-        
-        if 'timeout' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-            if zettaknight_globs.zfs_conf[dataset]['snap']['timeout']:
-                my_kwargs['timeout'] = zettaknight_globs.zfs_conf[dataset]['snap']['timeout']
     
-        if not parallel:
-            ret[dataset] = {}
+        ret[dataset] = {}
+        
         if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
+        
             if zettaknight_globs.zfs_conf[dataset]['snap']:
             
-            
-            
-                if 'backup_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-                    for backup_server in zettaknight_globs.zfs_conf[dataset]['snap']['backup_server']:
-
-                        try:
-
-                            backup_host, backup_loc = backup_server.split(":", 1)
-                            
-                            if backup_host is None or backup_loc is None:
-                                raise Exception("backup_server formatted incorrectly, should be in <host>@</remote_dir>:\n\t{1}".format(backup_server))
-                                
-                            backup_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], backup_host)
-                            backup_cmd = "bash {0} -d {1} -s {2} -r {3}".format(zettaknight_globs.backup_snap_script, my_kwargs['dataset'], backup_ssh, backup_loc)
-                    
-                    
-                            if zettaknight_globs.identity_file:
-                                backup_cmd = "{0} -i {1}".format(backup_cmd, zettaknight_globs.identity_file)
-                            
-                            ret[dataset]["Backup Dump to {0}".format(backup_host)] = zettaknight_utils.spawn_job(backup_cmd)   
-                                
-                        except Exception as e:
-                            zettaknight_utils.zlog("backup_server: {0}".format(e), "ERROR")
-                            pass
-                
                 if 'remote_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+                
                     for remote_server in zettaknight_globs.zfs_conf[dataset]['snap']['remote_server']:
                     
-                        try:    
-                            
-                            if str(zettaknight_globs.zfs_conf[dataset]['primary']) != str(zettaknight_globs.fqdn):
-                                if str(zettaknight_globs.zfs_conf[dataset]['primary']) == str(remote_server):
-                                    pull_snap = True
-                                else:
-                                    pull_snap = False
-                            else:
-                                pull_snap = False
-
-                        except KeyError:
-                            pull_snap = False
-                            pass    
-                        
-                        remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
-                        
-                        my_kwargs['remote_ssh'] = remote_ssh
-                        
                         if 'translate' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-                            my_kwargs['translate'] = zettaknight_globs.zfs_conf[dataset]['snap']['translate']
-                          
-                        sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, my_kwargs['dataset'], my_kwargs['remote_ssh'])
                         
-                        if parallel:
-    
-                            if 'identity_file' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -i {1}".format(sync_cmd, my_kwargs['identity_file'])
-                            if 'pull_snap' in my_kwargs.iterkeys():
-                                if my_kwargs['pull_snap']:
-                                    sync_cmd = "{0} -p".format(sync_cmd)
-                            if 'priority' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -n {1}".format(sync_cmd, my_kwargs['priority'])
-                            if 'translate' in my_kwargs.iterkeys():
-                                if my_kwargs['translate']:
-                                    sync_cmd = "{0} -r {1}".format(sync_cmd, my_kwargs['translate'])
-                            if 'timeout' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -t {1}".format(sync_cmd, my_kwargs['timeout'])
+                            if zettaknight_globs.zfs_conf[dataset]['snap']['translate']:
                         
-                            if sync_cmd:
-                                sync_list.append(sync_cmd)
+                                my_kwargs['translate'] = zettaknight_globs.zfs_conf[dataset]['snap']['translate']
                                 
-                        else:
+                        if 'timeout' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
                         
-                            ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(**my_kwargs)
+                            if zettaknight_globs.zfs_conf[dataset]['snap']['timeout']:
                             
-
-    if parallel:
-        job_list = zettaknight_utils.spawn_jobs(sync_list)
-        ret[zettaknight_globs.fqdn] = {}
-
-        for job in job_list:
-            ret[zettaknight_globs.fqdn]['Snapshot sync job {0}'.format(index)] = job_list[list_pos]
-            index += 1
-            list_pos += 1
-
+                                my_kwargs['timeout'] = zettaknight_globs.zfs_conf[dataset]['snap']['timeout']
+                    
+                        remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
+                        my_kwargs['remote_ssh'] = remote_ssh
+                    
+                        ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(**my_kwargs)
+    
     zettaknight_utils.zlog("[sync_all] return:\n\t{0}".format(ret), "DEBUG")
     return ret
- 
+    
+    
 def rename_dataset(**kwargs):
     '''
     '''
