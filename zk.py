@@ -6,6 +6,9 @@ import sys
 
 from zk_import import ZkZpools
 from zk_import import ZkZettaknight
+from zk_import import ZkDatasets
+from zk_utils2 import get_live_datasets
+from zk_utils2 import get_dataset_attributes
 
 logging.basicConfig(level=logging.DEBUG)
 #logger = logging.getLogger()
@@ -16,11 +19,15 @@ logging.basicConfig(level=logging.DEBUG)
 
 logging.info('Zettaknight Dev is starting...')
 
+zettaknight_conf_file = '/etc/zettaknight/zettaknight.conf'
 
+
+#-----------------------------------------------------------------------
+#find zpool information
+#-----------------------------------------------------------------------
 
 zpool_conf_file = '/etc/zettaknight/len010.clemson.edu_zpool.conf'
-zettaknight_conf_file = '/etc/zettaknight/zettaknight.conf'
- 
+
 try:
     zkpools = ZkZpools()
     live_zpools = zkpools.get_live_zpools()
@@ -41,4 +48,17 @@ for zpool, zpool_config in six.iteritems(live_zpools):
 for zpool, zpool_config in six.iteritems(deployed_zpools):
     for key, value in six.iteritems(zpool_config):
         print key, value
+
+#-----------------------------------------------------------------------
+#find dataset information
+#-----------------------------------------------------------------------
+
+live_datasets = get_live_datasets()
+print live_datasets
+
+for dataset in live_datasets:
+    attr = get_dataset_attributes(dataset)
+    sys.exit(0)
+
+#-----------------------------------------------------------------------
         
