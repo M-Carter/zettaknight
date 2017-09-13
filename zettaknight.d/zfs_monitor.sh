@@ -300,7 +300,7 @@ for pool in $($zpool list -o name -H); do
                                     if ! [ -z ${spare_disk_array[$spare_disk_index]} ]; then #if there is a spare
                                     
                                         echo -e  "\nreplacing disk ${faulted_disk_array[$faulted_disk_index]} with spare ${spare_disk_array[$spare_disk_index]}"
-                                        $replace_disk -a $ashift -p $pool -d ${faulted_disk_array[$faulted_disk_index]} -s ${spare_disk_array[$spare_disk_index]} | tee -a "$logfile"
+                                        $replace_disks -a $ashift -p $pool -d ${faulted_disk_array[$faulted_disk_index]} -s ${spare_disk_array[$spare_disk_index]} | tee -a "$logfile"
                                         
                                     else
                                     
@@ -479,6 +479,7 @@ if [ -f "$logfile" ]; then
         echo "removing logfile: $logfile"
         /bin/rm -f "$logfile"
         check_previous "rm -f $logfile"
+        exit 1
         
     fi
     

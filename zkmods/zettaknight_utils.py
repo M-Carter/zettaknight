@@ -38,91 +38,6 @@ import termios
 import shutil
 import paramiko
 
- 
-import zettaknight_globs
-import zettaknight_zfs
- 
-
-def zlog(*args):
-    '''
-    log function used for zettaknight purposes
-    '''
-    
-    if len(args) != 2:
-        ret[zettaknight_globs.fqdn]['log']['1'] = "log function takes exactly 2 arguments (message, level)"
-        parse_output(ret)
-        return
-
-    message = args[0]
-    level = args[1]
-    
-    ret = ""
-    
-    date = datetime.datetime.today()
-        
-    #test if level_zlog in globs is a string or int
-    if zettaknight_globs.zettaknight_conf is not None:
-    
-        if 'level_zlog' not in zettaknight_globs.zettaknight_conf.iterkeys():
-        
-            level_int = 4
-    
-        else:
-
-            if not isinstance(zettaknight_globs.zettaknight_conf['level_zlog'], int):
-        
-                if zettaknight_globs.zettaknight_conf['level_zlog'] == "DEBUG":
-                    level_int = 5
-                if zettaknight_globs.zettaknight_conf['level_zlog'] == "INFO":
-                    level_int = 4
-                if zettaknight_globs.zettaknight_conf['level_zlog'] == "WARNING":
-                    level_int = 3
-                if zettaknight_globs.zettaknight_conf['level_zlog'] == "ERROR":
-                    level_int = 2
-                if zettaknight_globs.zettaknight_conf['level_zlog'] == "CRITICAL":
-                    level_int = 1
-                    
-    else: #if zettaknight_conf is empty, allows ERROR and CRITICAL messages to be reported to standard out
-    
-        level_int = 4
-    
-    if level_int >= 5:
-    
-        if level.upper() == "DEBUG":
-            level = printcolors("{0}".format(level.upper()), "OKBLUE")
-            ret = "{0} {1} {2}".format(date, level, message)
-    
-    if level_int >= 4:
-    
-        if level.upper() == "INFO":
-            level = printcolors("{0}".format(level.upper()), "OKBLUE")
-            ret = "{0} {1} {2}".format(date, level, message)
-            
-        if level.upper() == "SUCCESS":
-            level = printcolors("{0}".format(level.upper()), "OKGREEN")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if level_int >= 3:
-        if level.upper() == "WARNING":
-            level = printcolors("{0}".format(level.upper()), "WARNING")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if level_int >= 2:
-        if level.upper() == "ERROR":
-            level = printcolors("{0}".format(level.upper()), "FAIL")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if level_int >= 1:
-        if level.upper() == "CRITICAL":
-            level = printcolors("{0}".format(level.upper()), "HEADER")
-            ret = "{0} {1} {2}".format(date, level, message)
-
-    
-    if ret:
-        print ret
-    
-    return ret
-
         
 def pipe_this(*args):
  
@@ -298,6 +213,7 @@ def printcolors(msg, value):
     colors = {
         'HEADER' : '\033[95m',
         'OKBLUE' : '\033[96m',
+        'BLUEHI' : '\033[44m',
         'OKGREEN' : '\033[92m',
         'WARNING' : '\033[93m',
         'FAIL' : '\033[91m',
@@ -335,6 +251,18 @@ def spawn_job(cmd):
         
     zlog("[spawn_job] return:\n\t{0}".format(ret), "DEBUG")
     return ret
+    
+def spawn_job2(cmd):
+    '''the old spawn job sucks'''
+
+    stdout = None
+    stderr = None
+    
+    c = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = c.communicate()
+    
+    return stdout, stderr
+    
     
 def spawn_jobs(*args):
 

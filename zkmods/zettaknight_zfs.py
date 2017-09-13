@@ -26,11 +26,11 @@ import sys
 import fileinput
 import os
 import json
- 
-#from zettaknight import *
-import zettaknight_utils
-import zettaknight_globs
-import zettaknight_zpool
+import logging
+import yaml
+
+logger = logging.getLogger(__name__)
+
  
 def nuke(pool, force=True):
     '''
@@ -609,6 +609,7 @@ def sync(*args, **kwargs):
     '''
     
     zettaknight_utils.zlog("kwargs recieved by sync\n\t{0}".format(kwargs), "DEBUG")
+    zettaknight_utils.zlog("args recieved by sync\n\t{0}".format(args), "DEBUG")
     
     if zettaknight_globs.help_flag:
         ret = """Sync:
@@ -633,181 +634,126 @@ def sync(*args, **kwargs):
     #        print("priority is an integer")
     #    os.nice(int(priority))
     try:
+    
+        if args:
+        
+            kwargs['dataset'] = args[0]
+            kwargs['remote_ssh'] = args[1]
+    
         if 'dataset' and 'remote_ssh' in kwargs.iterkeys():
+        
             sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, kwargs['dataset'], kwargs['remote_ssh'])
+            
         else:
+        
             raise Exception("dataset and remote_ssh is are required kwargs for sync")
     
         if 'identity_file' in kwargs.iterkeys():
+        
             sync_cmd = "{0} -i {1}".format(sync_cmd, kwargs['identity_file'])
-        if 'pull_snap' in kwargs.iterkeys():
-            if kwargs['pull_snap']:
-                sync_cmd = "{0} -p".format(sync_cmd)
+            
+        else:
+        
+            sync_cmd = "{0} -i {1}".format(sync_cmd, zettaknight_globs.identity_file)
+            
+#        if 'pull_snap' in kwargs.iterkeys():
+        
+#            if kwargs['pull_snap']:
+            
+#                sync_cmd = "{0} -p".format(sync_cmd)
+                
         if 'priority' in kwargs.iterkeys():
+        
             sync_cmd = "{0} -n {1}".format(sync_cmd, kwargs['priority'])
+            
         if 'translate' in kwargs.iterkeys():
+        
             if kwargs['translate']:
+            
                 sync_cmd = "{0} -r {1}".format(sync_cmd, kwargs['translate'])
+                
         if 'timeout' in kwargs.iterkeys():
+        
             if kwargs['timeout']:
+            
                 sync_cmd = "{0} -t {1}".format(sync_cmd, kwargs['timeout'])
     
         if str(inspect.stack()[1][3]) is 'sync_all':
+        
             zettaknight_utils.zlog("starting sync job:\n\t{0}".format(sync_cmd),"INFO")
+            
             ret = zettaknight_utils.spawn_job(sync_cmd)
+            
         else:
+        
             ret = {}
-            ret[dataset] = {}
-            ret[dataset]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd)
+            ret[kwargs['dataset']] = {}
+            ret[kwargs['dataset']]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd)
+            
     except Exception as e:
+    
         zettaknight_utils.zlog("{0}".format(e),"CRITICAL")
         sys.exit(1)
     
     return ret
- 
-def sync_all(**kwargs):
-    '''
-    '''
     
-    zettaknight_utils.zlog("kwargs passed to sync_all:\n\t{0}".format(kwargs), "DEBUG")
+    
+def sync_all():
+    '''
+    '''
     
     ret = {}
-    
-    if 'parallel' in zettaknight_globs.zettaknight_conf.iterkeys():
-    
-        if zettaknight_globs.zettaknight_conf['parallel']:
-    
-            parallel = zettaknight_utils._str_to_bool(zettaknight_globs.zettaknight_conf['parallel'])
-        
-    else:
-        parallel = False
-
-        
-    zettaknight_utils.zlog("[sync_all] started, parallel is {0}".format(parallel), "INFO")
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Sync All:
-
     Syncs snapshots for all defined datasets.
-    
-    Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
-
-    Usage:
-        zettaknight sync_all """
+	
+	Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
+	Usage:
+		zettaknight sync_all """
 
         return ret
 
-        
+		
     protocol = "ssh"
     
-    sync_list = []
-    index = 1
-    list_pos = 0
-
-
     for dataset in zettaknight_globs.zfs_conf.iterkeys():
     
-        #kwargs to be passed to sync
         my_kwargs = {}
         my_kwargs['dataset'] = dataset
         my_kwargs['identity_file'] = zettaknight_globs.identity_file
-        
-        
-        if 'timeout' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-            if zettaknight_globs.zfs_conf[dataset]['snap']['timeout']:
-                my_kwargs['timeout'] = zettaknight_globs.zfs_conf[dataset]['snap']['timeout']
     
-        if not parallel:
-            ret[dataset] = {}
+        ret[dataset] = {}
+        
         if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
+        
             if zettaknight_globs.zfs_conf[dataset]['snap']:
             
-            
-            
-                if 'backup_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-                    for backup_server in zettaknight_globs.zfs_conf[dataset]['snap']['backup_server']:
-
-                        try:
-
-                            backup_host, backup_loc = backup_server.split(":", 1)
-                            
-                            if backup_host is None or backup_loc is None:
-                                raise Exception("backup_server formatted incorrectly, should be in <host>@</remote_dir>:\n\t{1}".format(backup_server))
-                                
-                            backup_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], backup_host)
-                            backup_cmd = "bash {0} -d {1} -s {2} -r {3}".format(zettaknight_globs.backup_snap_script, my_kwargs['dataset'], backup_ssh, backup_loc)
-                    
-                    
-                            if zettaknight_globs.identity_file:
-                                backup_cmd = "{0} -i {1}".format(backup_cmd, zettaknight_globs.identity_file)
-                            
-                            ret[dataset]["Backup Dump to {0}".format(backup_host)] = zettaknight_utils.spawn_job(backup_cmd)   
-                                
-                        except Exception as e:
-                            zettaknight_utils.zlog("backup_server: {0}".format(e), "ERROR")
-                            pass
-                
                 if 'remote_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+                
                     for remote_server in zettaknight_globs.zfs_conf[dataset]['snap']['remote_server']:
                     
-                        try:    
-                            
-                            if str(zettaknight_globs.zfs_conf[dataset]['primary']) != str(zettaknight_globs.fqdn):
-                                if str(zettaknight_globs.zfs_conf[dataset]['primary']) == str(remote_server):
-                                    pull_snap = True
-                                else:
-                                    pull_snap = False
-                            else:
-                                pull_snap = False
-
-                        except KeyError:
-                            pull_snap = False
-                            pass    
-                        
-                        remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
-                        
-                        my_kwargs['remote_ssh'] = remote_ssh
-                        
                         if 'translate' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
-                            my_kwargs['translate'] = zettaknight_globs.zfs_conf[dataset]['snap']['translate']
-                          
-                        sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, my_kwargs['dataset'], my_kwargs['remote_ssh'])
                         
-                        if parallel:
-    
-                            if 'identity_file' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -i {1}".format(sync_cmd, my_kwargs['identity_file'])
-                            if 'pull_snap' in my_kwargs.iterkeys():
-                                if my_kwargs['pull_snap']:
-                                    sync_cmd = "{0} -p".format(sync_cmd)
-                            if 'priority' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -n {1}".format(sync_cmd, my_kwargs['priority'])
-                            if 'translate' in my_kwargs.iterkeys():
-                                if my_kwargs['translate']:
-                                    sync_cmd = "{0} -r {1}".format(sync_cmd, my_kwargs['translate'])
-                            if 'timeout' in my_kwargs.iterkeys():
-                                sync_cmd = "{0} -t {1}".format(sync_cmd, my_kwargs['timeout'])
+                            if zettaknight_globs.zfs_conf[dataset]['snap']['translate']:
                         
-                            if sync_cmd:
-                                sync_list.append(sync_cmd)
+                                my_kwargs['translate'] = zettaknight_globs.zfs_conf[dataset]['snap']['translate']
                                 
-                        else:
+                        if 'timeout' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
                         
-                            ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(**my_kwargs)
+                            if zettaknight_globs.zfs_conf[dataset]['snap']['timeout']:
                             
-
-    if parallel:
-        job_list = zettaknight_utils.spawn_jobs(sync_list)
-        ret[zettaknight_globs.fqdn] = {}
-
-        for job in job_list:
-            ret[zettaknight_globs.fqdn]['Snapshot sync job {0}'.format(index)] = job_list[list_pos]
-            index += 1
-            list_pos += 1
-
+                                my_kwargs['timeout'] = zettaknight_globs.zfs_conf[dataset]['snap']['timeout']
+                    
+                        remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
+                        my_kwargs['remote_ssh'] = remote_ssh
+                    
+                        ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(**my_kwargs)
+    
     zettaknight_utils.zlog("[sync_all] return:\n\t{0}".format(ret), "DEBUG")
     return ret
- 
+    
+    
 def rename_dataset(**kwargs):
     '''
     '''
@@ -981,52 +927,56 @@ def check_usage(dset=False, quiet=False):
     
     return ret
 
+    
+    logger.debug('live datasets: {0}'.format(dataset_list))
+    return dataset_list
+    
+    
+def get_dataset_attributes(datasets):
+    '''takes in a list of datasets, returns in format dict[dataset][attribute] = [(value, source), ...]'''
+    
+    assert isinstance(datasets, list) and datasets is not None, "datasets must be of type <list>"
+    
+    attr_dict = {}
+    
+    for dataset in datasets:
+        query = '/sbin/zfs get all -H {0}'.format(dataset)
+        attr_query = zettaknight_utils.spawn_job2(query)
+        stdout, stderr = attr_query
+        if stdout:
+            for line in stdout.split('\n'):
+                if line:
+                    items = line.split('\t')
+                    
+                    dataset = items[0]
+                    property = items[1]
+                    value = items[2]
+                    source = items[3]
+                
+                    if dataset not in six.iterkeys(attr_dict):
+                        attr_dict[dataset] = {}
+                        
+                    if property not in six.iterkeys(attr_dict[dataset]):
+                        attr_dict[dataset][property] = []
+                    
+                    tuple = (value, source)
+                    attr_dict[dataset][property].append(tuple)
+                    
+    return attr_dict
+    
+
 def build_out_config(force=False):
+    '''This function reads in the pool config file and creates the zfs data structures defined in it'''
     
+    #create pools defined in zpool conf
+    create_zpool(zpool, **zettaknight_globs.zpool_conf[zpool])
     
-    '''
-    This function reads in the pool config file and creates the zfs data structures defined in it
-    '''
+    #create datasets defined in zfs_conf
+    for dataset in zettaknight_globs.zfs_conf.iterkeys():
+            ret = add_dataset(dataset, **create_config)
     
-    ret = {}
-    ret[zettaknight_globs.fqdn] = {}
-    ret[zettaknight_globs.fqdn]['Build Config'] = {}
-    create_config = {}
-    create_config['create_config'] = False
-    create_config['nfs'] = False
-    
-    try:
-        #create pools defined in zpool conf
-        if zettaknight_globs.zpool_conf:
-            for zpool in zettaknight_globs.zpool_conf.iterkeys():
-                zettaknight_utils.zlog("determining if zpool {0} exists:\n\t[build_out_config] --> spawn_job : /sbin/zpool list -H {0}".format(zpool), "DEBUG")
-                d = zettaknight_utils.spawn_job("/sbin/zpool list -H '{0}'".format(zpool))
-                chk_code, chk_msg = d.popitem()
-                if int(chk_code) is not 0:
-                    ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = {}
-                    zettaknight_utils.zlog("creating {0}:\n\t[build_out_config] --> zettaknight_zpool.create_zpool".format(zpool), "DEBUG")
-                    out1 = zettaknight_zpool.create_zpool(zpool, **zettaknight_globs.zpool_conf[zpool])
-                    ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = out1[zpool]['Create Zpool']
-        
-        #print(ret)
-        #create datasets defined in zfs_conf
-        for dataset in zettaknight_globs.zfs_conf.iterkeys():
-            zettaknight_utils.zlog("determining if dataset {0} exists:\n\t[build_out_config] --> spawn_job : /sbin/zfs list -H {0}".format(dataset), "DEBUG")
-            d = zettaknight_utils.spawn_job("/sbin/zfs list -H '{0}'".format(dataset))
-            chk_code, chk_msg = d.popitem()
-            if int(chk_code) is not 0:
-                zettaknight_utils.zlog("creating {0}:\n\t[build_out_config] --> add_dataset".format(dataset), "DEBUG")
-                out2 = add_dataset(dataset, **create_config)
-                ret[zettaknight_globs.fqdn]['Create dataset {0}'.format(dataset)] = out2
-            
-        ret[zettaknight_globs.fqdn]['Build Config']['0'] = "Everything Looks Okay Here"
-    
-    except Exception as e:
-        zettaknight_utils.zlog("{0}".format(e), "ERROR")
-        ret[zettaknight_globs.fqdn]['Build Config']['1'] = e
-    
-    zettaknight_utils.zlog("ret for [build_out_config]:\n\t{0}".format(ret), "DEBUG")
     return ret
+
 
 def add_dataset(dataset, **kwargs):
     '''if create_config=True is passed, a configuration file
@@ -1227,27 +1177,41 @@ def check_group_quota(group):
 def generate_perf_stats(**kwargs):
     '''
     '''
-    
-    ret = {}
-    ret[zettaknight_globs.fqdn] = {}
-    ret[zettaknight_globs.fqdn]['Perf Stats'] = {}
-    
-    if zettaknight_globs.help_flag:
-        help = """Performance Stats:
-
-    Function to generate iostat data from defined zpools"""
-    
-        return help
         
     if not os.path.isdir(zettaknight_globs.zpool_perf_dir):
         os.mkdir(zettaknight_globs.zpool_perf_dir)
     
-    if zettaknight_globs.zpool_iostat_file:
-        perf_cmd = "bash {0} -f /{1}".format(zettaknight_globs.perf_stats_script, zettaknight_globs.zpool_iostat_file)
-        ret[zettaknight_globs.fqdn]['Perf Stats'] = zettaknight_utils.spawn_job(perf_cmd)
+    cmd = "bash {0} -f /{1}".format(zettaknight_globs.perf_stats_script, zettaknight_globs.zpool_iostat_file)
+    stdout, stderr = zettaknight_utils.spawn_job2(cmd)
+    
+    return stdout
+
+
+def create_zpool(**configs):
+
+    create_cmd = '/sbin/zpool create -f {0} -o autoreplace=on -O xattr=sa -O compression=lz4'.format(configs['pool'])
+
+    disks, z_level = configs['raid'].split("+")
+    create_cmd = "bash {0} -d {1} -z {2}".format(zettaknight_globs.zpool_create_script, disks, z_level)
+
+    if 'luks' in six.iterkeys(configs):
+        if config['luks']:
+            luks = True
+
+    if configs['slog']:
+        create_cmd += "{0} -s '{1}'".format(slog)
+        
+    if 'recordsize' in six.iterkeys(configs):
+        assert any(i in recordsize for i in 'KM'), 'recordsize can only have a K or M'
+        create_cmd += '-O recordsize={1}'.format(configs['recordsize'])
+        
+    if 'ashift' in six.iterkeys(configs):
+        create_cmd = '{0} -o ashift={1}'.format(create_cmd, configs['ashift'])
+        
+    if 'ldap' in six.iterkeys(configs):
+        _acl = '- O aclinherit=passthrough -O acltype=posixacl'
     else:
-        ret[zettaknight_globs.fqdn]['Perf Stats']['1'] = "{0} is not defined, cannot continue".format(zettaknight_globs.zpool_iostat_file)
+        _acl = '- O aclinherit=restricted -O acltype=off'
     
-    return ret
-    
-    
+    create_cmd += _acl
+          

@@ -11,16 +11,24 @@ echo -e "\nremoving broken kernel objects"
 for i in $(ls /lib/modules); do 
     echo $i
     
-    ls /lib/modules/${i}/extra 
-    rm -rf /lib/modules/${i}/extra/*
+    dir1="/lib/modules/${i}/extra"
     
-    ls /lib/modules/${i}/weak-updates
-    rm -rf /lib/modules/${i}/weak-updates/*
+    if [ -d $dir1 ]; then
+        ls $dir1 
+        rm -rf ${dir1}*
+    fi
+        
+    dir2="/lib/modules/${i}/weak-updates"
+    
+    if [ -d $dir2 ]; then
+        ls $dir2
+        rm -rf ${dir2}*
+    fi
 
 done
 
 
-yum reinstall spl spl-dkms -y 
-yum reinstall zfs-dkms -y 
-yum install zfs -y
+yum reinstall --nogpgcheck spl spl-dkms -y 
+yum reinstall --nogpgcheck zfs-dkms -y 
+yum install --nogpgcheck zfs -y
 

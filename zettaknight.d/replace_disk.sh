@@ -54,13 +54,19 @@ set -e
 setopts var "-d|--disk" "disk" "disk to be replaced"
 setopts var "-s|--spare" "spare" "disk to replace disk defined in -d"
 setopts int "-a|--ashift" "ashift" "ashift value"
-setopts var "-p|-zpool" "zpool" "zpool disk in -d is owned by"
+setopts var "-p|-pool" "pool" "zpool disk in -d is owned by"
 
-echo -e"zpool ${zpool}:\n\treplacing $disk with $spare"
+echo -e "zpool ${pool}: replacing $disk with $spare"
 
 if [ -z "$ashift" ]; then
-    $zpool replace -o $zpool $disk $spare
+
+    echo "$zpool replace -o $pool $disk $spare"
+    $zpool replace -o $pool $disk $spare
+    
 else
-    $zpool replace -o ashift=${ashift}  $zpool $disk $spare
+
+    echo "$zpool replace -o ashift=${ashift} $pool $disk $spare"
+    $zpool replace -o ashift=${ashift} $pool $disk $spare
+    
 fi
 

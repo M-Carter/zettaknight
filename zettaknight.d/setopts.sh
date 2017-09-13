@@ -72,7 +72,7 @@ EOF
                                 
                                 eval $var='$val'
                                 
-                            elif [[ $"opt_type" == "int" ]]; then
+                            elif [[ "$opt_type" == "int" ]]; then
                             
                                 arg="${BASH_ARGV[$global_bash_index]}"
                                 val="${BASH_ARGV[$(( $global_bash_index - 1 ))]}"

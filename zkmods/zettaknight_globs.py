@@ -20,12 +20,8 @@
 # -*- coding: utf-8 -*-
 
 ###############################################################################################
-################## DO NOT MODIFY ANYTHING BELOW THIS LINE #####################################
+############################ DO NOT MODIFY ANYTHING BELOW THIS LINE #####################################
 ###############################################################################################
-
-
-
-
 
 
 # Import python libs
@@ -43,11 +39,8 @@ required_python_version = "2.x"
 #variable to determine the fully qualified domain name of the system
 fqdn = socket.getfqdn()
 
-#needs to be removed when order YAML dict is in place
-pool_name = "zfs_data"
-
 #zfs dataset definition for store information for zettaknight, config files and keys will reside here
-zettaknight_store = "{0}/zettaknight/{1}".format(pool_name, fqdn)
+zettaknight_store = ""
 
 #determines the current date
 today_date = str(datetime.datetime.today().strftime('%Y%m%d_%H%M'))
@@ -61,6 +54,7 @@ base_dir = os.path.dirname(abspath)
 script_dir = os.path.dirname("{0}/zettaknight.d/".format(base_dir))
 conf_dir = os.path.dirname("{0}/zettaknight.conf.d/".format(base_dir))
 conf_dir_new = os.path.dirname("/etc/zettaknight/")
+modules_dir = os.path.dirname("{0}/modules/".format(base_dir))
 #conf_dir_final = os.path.dirname("/{0}".format(zettaknight_store)) #add leading slash, zfs share
 
 #############################################################################################
@@ -147,3 +141,20 @@ nfs_dset_suffix = "nfs"
 zfs_conf = {}
 zpool_conf = {}
 zettaknight_conf = {}
+live_zpools = []
+live_datasets = []
+subparsers = None
+
+modules_dir = ''
+modules = [
+                    'modules.zettaknight_zpool',
+                    'modules.zettaknight_utils',
+                    'modules.zettaknight_zfs',
+                    'modules.zettaknight_recover',
+                    'modules.zettaknight_ldap',
+                    'modules.zettaknight_check',
+                    'modules.zk_env'
+                ]
+               
+functions = []
+libraries = []
