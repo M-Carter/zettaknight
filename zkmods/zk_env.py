@@ -14,18 +14,6 @@ def create_environment():
     set_global_vars()
     
     
-def set_logging(logging_base):
-    logger_init = Logger(logger=logging_base, level='DEBUG')
-    
-    #add console output
-    logger = logger_init.console_handler()
-    
-    #add a logfile
-    logfile = ('/var/log/zettaknight.log')
-    logger = logger_init.max_time_handler(logfile, '1day', 5)
-    logger.info('added max time file handler: {0}'.format(logfile))
-    
-    
     
 
 #        out0 = build_out_config()

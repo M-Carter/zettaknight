@@ -24,7 +24,6 @@
 
 import sys
 import logging
-import logging.handlers
 import subprocess
 import shlex
 import yaml
@@ -38,35 +37,24 @@ import termios
 import shutil
 import paramiko
 
-        
-def pipe_this(*args):
- 
-    '''
-    This function interates over each element in the list and passes it through a pipe.
- 
-    Example:
-    ls /tmp | grep "bob" | grep "20150910"
-    would be
-    pipe_this("ls /tmp", "grep bob", "grep 20150910")
- 
-    The function returns the subprocess object of the piped commands.
-    '''
-    cmd_list = args
-    pipe = None
-    for cmd in cmd_list:
-        if pipe is None:
-            pipe = subprocess.Popen(shlex.split(cmd), stdout = subprocess.PIPE)
- 
-        else:
-            pipe = subprocess.Popen(shlex.split(cmd), stdin = pipe.stdout, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
- 
-    pipe.wait()
-    ret = pipe
- 
-    return ret
+logger = logging.getLogger(__name__)
+
+def spawn_job(cmd):
+    '''the old spawn job sucks'''
     
-def pipe_this2(arg):
- 
+    c = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = c.communicate()
+    
+    if stdout:
+        stdout = stdout.splitlines()
+        
+    if stderr:
+        stderr = stderr.splitlines()
+    
+    return stdout, stderr
+
+
+def pipe_job(arg):
     '''
     This function is a re-write of the orginal pipe_this. pipe_this2 better replicates the standard pipe notation familiar in bash.
  
@@ -75,17 +63,12 @@ def pipe_this2(arg):
     would be
     pipe_this2("ls /tmp | grep bob | grep 20150910")
     '''
- 
-    #print(arg)
-    try:
-        if "|" in arg:
-            cmd_list = arg.split("|")
-            #print(cmd_list)
-        else:
-            raise Exception("| not found in command, exiting")
-    except Exception as e:
-            zettaknight_utils.zlog("funtion pipe_this2 encountered an unrecoverable error: {0}".format(e), "CRITICAL")
-            sys.exit(1)
+
+    if "|" in arg:
+        cmd_list = arg.split("|")
+    else:
+        raise Exception("| not found in command, exiting")
+
  
     pipe = None
     for cmd in cmd_list:
@@ -96,10 +79,15 @@ def pipe_this2(arg):
         else:
             pipe = subprocess.Popen(shlex.split(cmd), stdin = pipe.stdout, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
  
-    pipe.wait()
-    ret = pipe
- 
-    return ret
+    stdout, stderr = pipe.communicate()
+    
+    if stdout:
+        stdout = stdout.splitlines()
+        
+    if stderr:
+        stderr = stderr.splitlines()
+    
+    return stdout, stderr
  
  
  
@@ -117,95 +105,6 @@ def mail_out(email_message, email_subject, email_recipient):
  
     return ret
     
- 
-def parse_output(out_dict):
-
-    zlog("parse_output started, dict obj passed:\n\t{0}".format(out_dict), "DEBUG")
-    
-    '''
-    accepts information in the following format 
-    ret[dataset]['job'][<ret code>][<payload>]
-    '''
-    
-    Zlogger = logging.getLogger('Zlogger')
-    Zlogger.setLevel(logging.INFO)
-
-    handler = logging.handlers.SysLogHandler(address = '/dev/log')
-    Zlogger.addHandler(handler)
-
-#    if zettaknight_globs.mm_flag:
-#        zettaknight_globs.nocolor_flag = True
-
-    for dataset in out_dict.iterkeys():
-        json_out = {}
-        json_out["dataset"] = dataset
-        json_out["elapsed time (sec)"] = zettaknight_globs.elapsed_time
-        for job in out_dict[dataset].iterkeys():
-            json_out["job"] = job
-            for exit_status, output in out_dict[dataset][job].iteritems():
-                if isinstance(output, dict):
-                    for value in out_dict[dataset][job][exit_status].itervalues():
-                        for exit_status, output in value.iteritems():
-                           json_out["exit status"] = exit_status
-                           json_out["output"] = output
-
-                else:
-                    json_out["exit status"] = exit_status
-                    json_out["output"] = output
-
-            Zlogger.info(json.dumps({"Zettaknight": json_out}, sort_keys = True))
-
-    #print(printcolors("dictionary object passed to parse_output:\n{0}".format(out_dict), "WARNING"))
-    for dataset in out_dict.iterkeys():
-        global_ret = ""
-        mail_this = False
-        a = printcolors("\nDataset: {0}\n────────┐".format(dataset), "HEADER")
-        print(a)
-        for job in out_dict[dataset].iterkeys():
-            #print(printcolors("    {0}:".format(job), "OKBLUE"))
-            for exit_status, output in out_dict[dataset][job].iteritems():
-                if isinstance(output, dict):
-                    for value in out_dict[dataset][job][exit_status].itervalues():
-                        for exit_status, output in value.iteritems():
-                            #print("\n\noutput is : \n{0}\n\n ".format(output))
-                            output = str(output.replace('\n', '\n               '))
-                else:
-                    output = str(output.replace('\n', '\n               '))
-    
-                if str(exit_status) is "0":
-                    task = "{0}".format(printcolors("    ├────────┬ {0}:".format(job),"OKBLUE"))
-                    task_output = "{0}".format(printcolors("         ├──────── {0}\n".format(output), "OKGREEN"))
-                else:
-                    if zettaknight_globs.mail_error_flag:
-                        mail_this = True
-                        
-                    task = "{0}".format(printcolors("    ├────────┬ {0}:".format(job), "OKBLUE"))
-                    task_output = "{0}".format(printcolors("         ├──────── {0}\n".format(output), "FAIL"))
-                    
-                msg = "{0}\n{1}".format(task, task_output)
-                
-            global_ret = "{0}{1}\n".format(global_ret, msg)
-            
-        print(global_ret)
- #       if zettaknight_globs.mm_flag:
- #           mm_msg = re.sub("[├─┬┐]", "", global_ret)
- #           mm_msg = re.sub("%", " percent", mm_msg)
- #           mm_msg = re.sub("    ", "", mm_msg)
- #           mm_post(mm_msg)
-        
-        if zettaknight_globs.mail_flag or mail_this:
-            global_ret = "Zettaknight:\n{0}{1}".format(a, global_ret)
-            try:
-                contact = zettaknight_globs.zfs_conf[dataset]['contact']
-            except KeyError:
-                contact = zettaknight_globs.default_contact_info
-
-            mail_sub = re.sub("[├─┬┐]", "", a)
-            mail_msg = re.sub("[├─┬┐]", "", global_ret) #re.sub = regular expression substitution (sed)
-
-            send_mail = mail_out(mail_msg, "Job report for Dataset: {0}, on {1}".format(dataset, zettaknight_globs.fqdn), contact)
- 
-    return global_ret
 
 def printcolors(msg, value):
     #printcolors uses ansi color codes to change output colors
@@ -225,43 +124,6 @@ def printcolors(msg, value):
  
     else:
         return(colors[value] + str(msg) + colors['ENDC'])
- 
- 
-def spawn_job(cmd):
- 
-    #print(_printcolors("\033[0mnRunning command: {0}".format(cmd), "HEADER"))
-    ret = {}
-    try:
-        zlog("[spawn_job] running command:\n\t{0}".format(cmd), "DEBUG")
-        cmd_run = subprocess.Popen(shlex.split(cmd), stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-        cmd_run.wait()
-        cmd_run_stdout = cmd_run.stdout.read()
-        if not cmd_run_stdout:
-            if int(cmd_run.returncode) == 0:
-                cmd_run_stdout = "Job succeeded"
-            else:
-                cmd_run_stdout = "Job failed"
-        ret = {cmd_run.returncode: cmd_run_stdout}
- 
-    except Exception as e:
-        returncode = 1
-        ret = {returncode: e}
-        print(printcolors(ret, "FAIL"))
-        pass
-        
-    zlog("[spawn_job] return:\n\t{0}".format(ret), "DEBUG")
-    return ret
-    
-def spawn_job2(cmd):
-    '''the old spawn job sucks'''
-
-    stdout = None
-    stderr = None
-    
-    c = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = c.communicate()
-    
-    return stdout, stderr
     
     
 def spawn_jobs(*args):
@@ -473,265 +335,7 @@ def check_quiet(quiet):
                 sys.exit(0)
             
     return quiet
- 
-
-def create_config(**kwargs):
-    '''
-    '''
     
-    ret = {}
-    
-    if zettaknight_globs.help_flag:
-        ret = """Create Config:
-
-    Function to create/update configuration files for newly created or previously unmanaged datasets.
-    User will be queried to provide any information that is not provided as an argument or in configuration
-    files.
-    
-    Usage:
-        zettaknight create_config (dataset=<dataset> <arg>=<value>)
-    
-    Optional Arguments:
-        dataset
-            Dataset name configuration is to be created for
-        user
-            Username to use for snapshot replication
-        quota
-            Quota to set on dataset
-        refquota
-            Refquota to set on dataset
-        reservation
-            Reservation to set on dataset
-        refreservation
-            Refreservation to set on dataset
-        retention
-            Number of days to keep snapshots
-        secure
-            Whether snapshots should be replicated over SSH
-        contact
-            Contact e-mail to send job error output to.
-        interval
-            Interval at which to take snapshots.
-        remote_server
-            Remote server to replicate snapshots to."""
-
-        return ret
-        
-    ret[zettaknight_globs.fqdn] = {}
-    ret[zettaknight_globs.fqdn]['Create Config'] = {}
-    
-    #print(kwargs)
-    new_conf = {}
-    
-    #create var dictionary and depth
-    var = {}
-    var['snap'] = {}
-    var['snap']['interval'] = {}
-    var['snap']['remote_server'] = {}
-    var['reservation'] = {}
-    var['refreservation'] = {}
-    var['quota'] = {}
-    var['refquota'] = {}
-    var['secure'] = {}
-    var['user'] = {} 
-    var['retention'] = {}
-    var['contact'] = {}
-    
-    
-    dataset_list = []
-    #config_dict = zettaknight_globs.zfs_conf
-    
-    conff = open(zettaknight_globs.config_file_new, 'r')   
-    config_dict = yaml.safe_load(conff)
-        
-    #print(config_dict)
-    
-    #if a dataset is passed in, only do work for that particular dataset
-    if 'dataset' in kwargs.iterkeys():
-        #print("a dataset was passed in : {0}").format(kwargs['dataset'])
-        dataset = kwargs['dataset']
-        dataset_list.append(dataset)
-    else:
-        if config_dict:
-            for dset in config_dict.iterkeys():
-                if not dset in dataset_list:
-                    #print("dataset {0} defined in configuration file, not in arguments. Adding to list".format(dset))
-                    dataset_list.append(dset)
-                        
-    #print("dataset_list = {0}".format(dataset_list))
-                    
-    for dataset in dataset_list:
-        #print(dataset)
-        
-        
-        if 'defaults' in config_dict.iterkeys():
-            if 'user' in config_dict['defaults'].iterkeys():
-                var['user'] = config_dict['defaults']['user']
-                
-            if 'quota' in config_dict['defaults'].iterkeys():
-                var['quota'] = config_dict['defaults']['quota']
-                
-            if 'refquota' in config_dict['defaults'].iterkeys():
-                var['refquota'] = config_dict['defaults']['refquota']
-                
-            if 'reservation' in config_dict['defaults'].iterkeys():
-                var['reservation'] = config_dict['defaults']['reservation']
-                
-            if 'refreservation' in config_dict['defaults'].iterkeys():
-                var['refreservation'] = config_dict['defaults']['refreservation']
-                
-            if 'retention' in config_dict['defaults'].iterkeys():
-                var['retention'] = config_dict['defaults']['retention']
-                
-            if 'secure' in config_dict['defaults'].iterkeys():
-                var['secure'] = config_dict['defaults']['secure']
-                
-            if 'contact' in config_dict['defaults'].iterkeys():
-                var['contact'] = config_dict['defaults']['contact']
-                
-            if 'snap' in config_dict['defaults'].iterkeys():
-                if 'interval' in config_dict['defaults']['snap'].iterkeys():
-                    var['snap']['interval'] = config_dict['defaults']['snap']['interval']
-                if 'remote_server' in config_dict['defaults']['snap'].iterkeys():
-                    var['snap']['remote_server'] = config_dict['defaults']['snap']['remote_server']
-                
-        # if kwargs are passed in, overwrite defaults
-        if 'user' in kwargs.iterkeys():
-            var['user'] = kwargs['user']
-
-        if 'quota' in kwargs.iterkeys():
-            var['quota'] = kwargs['quota']
-            
-        if 'refquota' in kwargs.iterkeys():
-            var['refquota'] = kwargs['refquota']
-            
-        if 'reservation' in kwargs.iterkeys():
-            var['reservation'] = kwargs['reservation']
-            
-        if 'refreservation' in kwargs.iterkeys():
-            var['refreservation'] = kwargs['refreservation']
-            
-        if 'retention' in kwargs.iterkeys():
-            var['retention'] = kwargs['retention']
-            
-        if 'secure' in kwargs.iterkeys():
-            var['secure'] = kwargs['secure']
-            
-        if 'contact' in kwargs.iterkeys():
-            #var['contact'] = kwargs['contact']
-            var['contact'] = list(strip_input(kwargs['contact']).split(" "))
-
-        if 'interval' in kwargs.iterkeys():
-            #var['snap']['interval'] = kwargs['interval']
-            var['snap']['interval'] = list(strip_input(kwargs['interval']).split(" "))
-                    
-        if 'remote_server' in kwargs.iterkeys():
-            #var['snap']['remote_server'] = kwargs['remote_server']
-            var['snap']['remote_server'] = list(strip_input(kwargs['remote_server']).split(" "))   
-        
-        
-        
-        #test if defaults and kwargs are empty, if so, prompt user for input
-        if not var['user']:
-            var['user'] = query_return_item("username for snapshot replication? ")
-            
-        if not var['quota']:
-            var['quota'] = query_return_item("Enter quota for {0}: ".format(dataset))
-            
-        if not var['refquota']:
-            var['refquota'] = 'none'
-            
-        if not var['reservation']:
-            var['reservation'] = query_return_item("Enter reservation for {0}: ".format(dataset))
-            
-        if not var['refreservation']:
-            var['refreservation'] = 'none'
-            
-        if not var['retention']:
-            var['retention'] = query_return_item("How many days would you like zettaknight to keep snapshots for {0}: ".format(dataset))
-            
-        if not var['secure']:
-            var['secure'] = query_yes_no("send snaps over ssh?: ")
-        
-        if not var['contact']:
-            var['contact'] = query_return_list("Who do you want zettaknight to contact when an error is encountered? [person1@example.com person2@example.com ...]")
-        
-        if not var['snap']['interval']:
-            var['snap']['interval'] = query_return_list("How often would you like zettaknight to run backups?\ni.e run every 4 hours [everyhour=4], to run at 10:30am, [hour=10]")
-
-        if not var['snap']['remote_server']:
-            var['snap']['remote_server'] = query_return_list("What server(s) do you want to replicate to? Will accept DNS names or IP addresses")
-            
-            
-        
-        #if var is defined for in defaults, and 
-        if 'defaults' in config_dict.iterkeys():
-            if 'user' in config_dict['defaults'].iterkeys():
-                if var['user'] == config_dict['defaults']['user']:
-                    del var['user']
-                
-            if 'quota' in config_dict['defaults'].iterkeys():
-                if var['quota'] == config_dict['defaults']['quota']:
-                    del var['quota']
-                
-            if 'refquota' in config_dict['defaults'].iterkeys():
-                if var['refquota'] == config_dict['defaults']['refquota']:
-                    del var['refquota']
-                
-            if 'reservation' in config_dict['defaults'].iterkeys():
-                if var['reservation'] == config_dict['defaults']['reservation']:
-                    del var['reservation']
-                
-            if 'refreservation' in config_dict['defaults'].iterkeys():
-                if var['refreservation'] == config_dict['defaults']['refreservation']:                    
-                    del var['refreservation']
-                
-            if 'retention' in config_dict['defaults'].iterkeys():
-                if var['retention'] == config_dict['defaults']['retention']:
-                    del var['retention']
-                
-            if 'secure' in config_dict['defaults'].iterkeys():
-                if var['secure'] == config_dict['defaults']['secure']:
-                    del var['secure']
-                
-            if 'contact' in config_dict['defaults'].iterkeys():
-                if var['contact'] == config_dict['defaults']['contact']:
-                    del var['contact']
-                
-            if 'snap' in config_dict['defaults'].iterkeys():
-                if 'interval' in config_dict['defaults']['snap'].iterkeys():
-                    if var['snap']['interval'] == config_dict['defaults']['snap']['interval']:
-                        del var['snap']['interval']
-                if 'remote_server' in config_dict['defaults']['snap'].iterkeys():
-                    if var['snap']['remote_server'] == config_dict['defaults']['snap']['remote_server']:
-                        del var['snap']['remote_server']
-                if not var['snap']: #if var['snap'] is empty, remove it so it is not printed by the yaml.safe.dump
-                    del var['snap']
-
-        new_conf[str(dataset)] = var
-        config_dict[str(dataset)] = var
-                    
-    print(printcolors("\n\n\nThe following will be added to {0}\n", "HEADER").format(zettaknight_globs.config_file_new))
-    out = yaml.safe_dump(new_conf, default_flow_style=False)
-    out2 = yaml.safe_dump(config_dict, default_flow_style=False)
-    print(out)
-    
-    try:
-        response = query_yes_no("Would you like to commit changes?")
-        if response:
-            with open(zettaknight_globs.config_file_new, "w") as myfile:
-                myfile.write(yaml.safe_dump(config_dict, default_flow_style=False))
-                print(printcolors("changes committed", "OKGREEN"))
-            
-            ret[zettaknight_globs.fqdn]['Create Config']['0'] = {}
-            ret[zettaknight_globs.fqdn]['Create Config']['0'] = out2
-        else:
-            print(printcolors("exit requested", "WARNING"))
-            return
-    except Exception as e:
-        ret[zettaknight_globs.fqdn]['Create Config']['1'] = e
-                
-    return ret
  
 def sharenfs(*args):
     '''

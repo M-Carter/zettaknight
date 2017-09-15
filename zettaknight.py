@@ -58,6 +58,16 @@ def help(methods, *args):
 
 if __name__=="__main__":
 
+    logging_base = logging.getLogger()
+    logger_init = Logger(logger=logging_base, level='DEBUG')
+    logger = logger_init.console_handler()
+    
+    #add a logfile
+    logfile = ('/var/log/zettaknight.log')
+    logger = logger_init.max_time_handler(logfile, '1day', 5)
+    logger.info('added max time file handler: {0}'.format(logfile))
+
+
     parser=argparse.ArgumentParser()
     parser.add_argument('zk_function')
     parser.add_argument('zk_args', nargs='+')
@@ -69,9 +79,11 @@ if __name__=="__main__":
     _args = vars(opts)
     print _args
     
+    
     for item in list(sys.modules):
-        if 'zkmods' in item:
-            print item
+        print item
+        if 'zkmods' in item.split('.', 1)[0]:
+            print 'zkmod item is', item
     
     #print globals()
     
@@ -99,7 +111,6 @@ if __name__=="__main__":
     
     functions = []
     for module in _modules:
-        print module
         #mod = importlib.import_module(module)
         mod = __import__(module, globals={"__name__": __name__})
         globals()[mod] = mod

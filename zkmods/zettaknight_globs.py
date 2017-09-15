@@ -145,16 +145,6 @@ live_zpools = []
 live_datasets = []
 subparsers = None
 
-modules_dir = ''
-modules = [
-                    'modules.zettaknight_zpool',
-                    'modules.zettaknight_utils',
-                    'modules.zettaknight_zfs',
-                    'modules.zettaknight_recover',
-                    'modules.zettaknight_ldap',
-                    'modules.zettaknight_check',
-                    'modules.zk_env'
-                ]
-               
+modules = []
 functions = []
 libraries = []

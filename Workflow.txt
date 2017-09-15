@@ -1,0 +1,45 @@
+set logging environment
+
+read configuration files
+
+parse arguments
+
+
+
+get all zpools
+	get zpool attributes
+get all datasets
+	get dataset attributes
+	get snapshots for datasets
+
+if function is called:
+	walk modules directory
+		pull all functions out of modules, make them callable
+	run function
+
+if no function is called:
+	set environment
+		create ssh key
+		make sure all ssh replication between remote nodes and DGR is configured
+		backup luks headers
+		create zettaknight store
+		build zpools
+		build datasets
+		set quotas/reservations
+		set dedup/compression
+	monitoring
+		monitor pool health
+		monitor silent data errors
+		determine and replace failed disks, use all spares
+		monitor filesystem usage, quota and reservation spaces for all datasets
+			monitor usage for all remote servers
+			monitor all snapshots have replicated to all secondaries
+		link confirmation speed
+			performance monitoring
+				zpool iostat
+	subsystem
+		map disks from mulitpath, to raw devices, to expander and slot information
+		smartdisk output, check disk health
+	API
+		provide zk functions through API calls
+		
